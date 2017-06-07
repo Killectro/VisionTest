@@ -61,7 +61,7 @@ private extension ViewController {
                 self.faceRect = self.rect(fromRelative: result.boundingBox, size: self.image.size)
 
                 ctx.setStrokeColor(UIColor.yellow.cgColor)
-                ctx.stroke(self.faceRect, width: 3.0)
+                ctx.stroke(self.faceRect, width: 2.5)
             })!
         }
 
@@ -83,23 +83,22 @@ private extension ViewController {
             }
 
             guard let result = request.results?.first as? VNFaceObservation,
-                let allPoints = result.landmarks?.allPoints else {
+                let landmarks = result.landmarks else {
                 return
             }
 
-            for index in (0..<allPoints.pointCount) {
-                let point = allPoints.point(at: index)
+            let pointsArray = self.normalizedPointsFrom(landmarks: landmarks)
 
-                let rect = self.rectCenteredOn(relativePoint: point)
-                var newRect = self.rect(fromRelative: rect, size: self.faceRect.size)
-                newRect.origin.x += self.faceRect.origin.x
-                newRect.origin.y += self.faceRect.origin.y
+            self.image = self.imageWith(size: self.image.size, style: { ctx in
+                ctx.setStrokeColor(UIColor.red.cgColor)
+                ctx.setLineWidth(2.0)
 
-                self.image = self.imageWith(size: self.image.size, style: { ctx in
-                    ctx.setFillColor(UIColor.red.cgColor)
-                    ctx.fill(newRect)
-                })!
-            }
+                for points in pointsArray {
+                    ctx.beginPath()
+                    ctx.addLines(between: points)
+                    ctx.strokePath()
+                }
+            })!
         }
 
         request.preferBackgroundProcessing = true
@@ -134,7 +133,7 @@ private extension ViewController {
         )
     }
 
-    private func rect(fromRelative boundingBox: CGRect, size: CGSize) -> CGRect {
+    func rect(fromRelative boundingBox: CGRect, size: CGSize) -> CGRect {
         var rect = CGRect(
             x: boundingBox.origin.x * size.width,
             y: size.height - boundingBox.origin.y * size.height,
@@ -145,5 +144,36 @@ private extension ViewController {
         rect.origin.y -= rect.height
 
         return rect
+    }
+
+    /// Returns a list of list of CGPoint objects that represents a collection of landmark points
+    func normalizedPointsFrom(landmarks: VNFaceLandmarks2D) -> [[CGPoint]] {
+        return [
+            landmarks.faceContour,
+            landmarks.leftEye,
+            landmarks.rightEye,
+            landmarks.leftEyebrow,
+            landmarks.rightEyebrow,
+            landmarks.nose,
+            landmarks.noseCrest,
+            landmarks.medianLine,
+            landmarks.outerLips,
+            landmarks.innerLips,
+            landmarks.leftPupil,
+            landmarks.rightPupil
+        ].flatMap { $0 }
+            .map { landmarkRegion in
+                return (0 ..< landmarkRegion.pointCount)
+                    .map { landmarkRegion.point(at: $0) }
+                    .map { self.rectCenteredOn(relativePoint: $0) }
+                    .map { rect -> CGRect in
+                        var newRect = self.rect(fromRelative: rect, size: self.faceRect.size)
+                        newRect.origin.x += self.faceRect.origin.x
+                        newRect.origin.y += self.faceRect.origin.y
+
+                        return newRect
+                    }
+                    .map { CGPoint(x: $0.midX, y: $0.midY) }
+        }
     }
 }
