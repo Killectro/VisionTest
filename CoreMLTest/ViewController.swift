@@ -35,41 +35,11 @@ final class ViewController: UIViewController {
         view.addSubview(imageView)
         imageView.frame = view.bounds
 
-        performFaceRectRequests()
         performFaceFeatureRequests()
     }
 }
 
 private extension ViewController {
-    func performFaceRectRequests() {
-        guard let cgImage = image.cgImage else {
-            fatalError("Invalid image")
-        }
-
-        let request = VNDetectFaceRectanglesRequest { [unowned self] request, err in
-            guard err == nil else {
-                print(err!)
-                return
-            }
-
-            guard let result = request.results?.first as? VNFaceObservation else {
-                return
-            }
-
-            self.image = self.imageWith(size: self.image.size, style: { ctx in
-                // The origin of the bounding box starts at the bottom left, so we need to account for that
-                self.faceRect = self.rect(fromRelative: result.boundingBox, size: self.image.size)
-
-                ctx.setStrokeColor(UIColor.yellow.cgColor)
-                ctx.stroke(self.faceRect, width: 2.5)
-            })!
-        }
-
-        request.preferBackgroundProcessing = true
-
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        try? handler.perform([request])
-    }
 
     func performFaceFeatureRequests() {
         guard let cgImage = image.cgImage else {
@@ -87,18 +57,28 @@ private extension ViewController {
                 return
             }
 
-            let pointsArray = self.normalizedPointsFrom(landmarks: landmarks)
+            DispatchQueue.global(qos: DispatchQoS.QoSClass.userInitiated).async {
+                self.image = self.imageWith(size: self.image.size, style: { ctx in
+                    // The origin of the bounding box starts at the bottom left, so we need to account for that
+                    self.faceRect = self.rect(fromRelative: result.boundingBox, size: self.image.size)
 
-            self.image = self.imageWith(size: self.image.size, style: { ctx in
-                ctx.setStrokeColor(UIColor.red.cgColor)
-                ctx.setLineWidth(2.0)
+                    ctx.setStrokeColor(UIColor.yellow.cgColor)
+                    ctx.stroke(self.faceRect, width: 2.5)
+                })!
 
-                for points in pointsArray {
-                    ctx.beginPath()
-                    ctx.addLines(between: points)
-                    ctx.strokePath()
-                }
-            })!
+                let pointsArray = self.normalizedPointsFrom(landmarks: landmarks)
+
+                self.image = self.imageWith(size: self.image.size, style: { ctx in
+                    ctx.setStrokeColor(UIColor.red.cgColor)
+                    ctx.setLineWidth(2.0)
+
+                    for points in pointsArray {
+                        ctx.beginPath()
+                        ctx.addLines(between: points)
+                        ctx.strokePath()
+                    }
+                })!
+            }
         }
 
         request.preferBackgroundProcessing = true
