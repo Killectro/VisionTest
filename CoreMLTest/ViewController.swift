@@ -57,34 +57,32 @@ private extension ViewController {
                 return
             }
 
-            DispatchQueue.global(qos: DispatchQoS.QoSClass.userInitiated).async {
-                self.image = self.imageWith(size: self.image.size, style: { ctx in
-                    // The origin of the bounding box starts at the bottom left, so we need to account for that
-                    self.faceRect = self.rect(fromRelative: result.boundingBox, size: self.image.size)
+            self.image = self.imageWith(size: self.image.size, style: { ctx in
+                // The origin of the bounding box starts at the bottom left, so we need to account for that
+                self.faceRect = self.rect(fromRelative: result.boundingBox, size: self.image.size)
 
-                    ctx.setStrokeColor(UIColor.yellow.cgColor)
-                    ctx.stroke(self.faceRect, width: 2.5)
-                })!
+                ctx.setStrokeColor(UIColor.yellow.cgColor)
+                ctx.stroke(self.faceRect, width: 2.5)
+            })!
 
-                let pointsArray = self.normalizedPointsFrom(landmarks: landmarks)
+            let pointsArray = self.normalizedPointsFrom(landmarks: landmarks)
 
-                self.image = self.imageWith(size: self.image.size, style: { ctx in
-                    ctx.setStrokeColor(UIColor.red.cgColor)
-                    ctx.setLineWidth(2.0)
+            self.image = self.imageWith(size: self.image.size, style: { ctx in
+                ctx.setStrokeColor(UIColor.red.cgColor)
+                ctx.setLineWidth(2.0)
 
-                    for points in pointsArray {
-                        ctx.beginPath()
-                        ctx.addLines(between: points)
-                        ctx.strokePath()
-                    }
-                })!
-            }
+                for points in pointsArray {
+                    ctx.beginPath()
+                    ctx.addLines(between: points)
+                    ctx.strokePath()
+                }
+            })!
         }
 
-        request.preferBackgroundProcessing = true
-
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        try? handler.perform([request])
+        DispatchQueue.global(qos: DispatchQoS.QoSClass.userInitiated).async {
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            try? handler.perform([request])
+        }
     }
 
     private func imageWith(size: CGSize, style: (CGContext) -> Void) -> UIImage? {
